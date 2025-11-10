@@ -1,0 +1,2 @@
+def inferencia():
+    return None
