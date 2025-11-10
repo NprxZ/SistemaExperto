@@ -1,3 +1,4 @@
+from moduos import inferencia
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
@@ -241,6 +242,20 @@ class SistemaExpertoUI:
                                      command=self.generar_informe)
         self.btn_informe.pack(side="left", padx=10, pady=15)
 
+        self.btn_historial = tk.Button(footer_frame,
+                                       text="Ver Historial Guardado",
+                                       font=("Segoe UI", 12),
+                                       bg="#22c55e",
+                                       fg="white",
+                                       activebackground="#16a34a",
+                                       activeforeground="white",
+                                       cursor="hand2",
+                                       relief="flat",
+                                       padx=20,
+                                       pady=10,
+                                       command=self.ver_historial)
+        self.btn_historial.pack(side="left", padx=10, pady=15)
+
         status_label = tk.Label(footer_frame,
                                 text="Sistema Experto v1.0 | RedSemántica Activa",
                                 font=("Segoe UI", 10),
@@ -331,8 +346,85 @@ class SistemaExpertoUI:
         self.history_text.config(state="disabled")
 
     def generar_informe(self):
-        self.agregar_historial("Generando informe...")
-        self.agregar_historial("Análisis de red semántica en proceso...")
+        """Genera el diagnóstico final usando el motor de inferencia."""
+        try:
+            self.agregar_historial("Generando informe...")
+            respuestas = []
+
+            for i in range(self.current_question):
+                respuestas.append(self.preguntas[i])
+
+            import importlib.util
+            import sys, os
+
+            ruta_modulos = os.path.join(os.path.dirname(__file__), "moduos")
+            ruta_inferencia = os.path.join(ruta_modulos, "inferencia.py")
+
+            spec = importlib.util.spec_from_file_location("inferencia", ruta_inferencia)
+            inferencia = importlib.util.module_from_spec(spec)
+            sys.modules["inferencia"] = inferencia
+            spec.loader.exec_module(inferencia)
+
+            diagnostico = inferencia.inferir(respuestas)
+
+            from tkinter import messagebox
+            messagebox.showinfo("Resultado del Diagnóstico", diagnostico)
+
+            self.agregar_historial("Diagnóstico generado:")
+            self.agregar_historial(diagnostico)
+
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Ocurrió un error al generar el informe:\n{e}")
+            print("Error en generar_informe:", e)
+
+    def ver_historial(self):
+        """Muestra los diagnósticos guardados en la base de datos."""
+        try:
+            import sqlite3
+            import os
+            from tkinter import Toplevel, Text, Scrollbar, END
+
+            db_path = os.path.join(os.path.dirname(__file__), "sistema_experto.db")
+
+            if not os.path.exists(db_path):
+                messagebox.showwarning("Aviso", "No hay base de datos aún o no se han guardado diagnósticos.")
+                return
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT fecha, resultado FROM diagnosticos ORDER BY fecha DESC")
+            datos = cursor.fetchall()
+            conn.close()
+
+            if not datos:
+                messagebox.showinfo("Historial", "No se han registrado diagnósticos aún.")
+                return
+
+            ventana = Toplevel(self.root)
+            ventana.title("Historial de Diagnósticos")
+            ventana.geometry("600x400")
+            ventana.configure(bg="#0f172a")
+
+            text_area = Text(ventana, bg="#1e293b", fg="#e2e8f0", font=("Consolas", 10), wrap="word", padx=10, pady=10)
+            text_area.pack(fill="both", expand=True)
+
+            scroll = Scrollbar(text_area, command=text_area.yview)
+            text_area.config(yscrollcommand=scroll.set)
+            scroll.pack(side="right", fill="y")
+
+            for fecha, resultado in datos:
+                text_area.insert(END, f" {fecha}\n {resultado}\n{'-'*50}\n\n")
+
+            text_area.config(state="disabled")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo leer el historial:\n{e}")
+
+
+
+
 
 
 if __name__ == "__main__":
