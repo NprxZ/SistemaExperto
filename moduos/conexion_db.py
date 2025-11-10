@@ -1,4 +1,4 @@
-# Para la conexión a la base de datos
+# Para la conexión a la base de datos, usando SQLite para que sea más portatil al compartirlo con los demás
 import sqlite3
 
 def conectar():
